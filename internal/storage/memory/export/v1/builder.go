@@ -89,22 +89,10 @@ func Build(data *MissionData) Export {
 		})
 	}
 
-	// Pre-compute maxFrame across all entities (needed for gap-filling sparse states)
-	var maxFrame core.Frame = 0
-	for _, record := range data.Soldiers {
-		for _, state := range record.States {
-			if state.CaptureFrame > maxFrame {
-				maxFrame = state.CaptureFrame
-			}
-		}
-	}
-	for _, record := range data.Vehicles {
-		for _, state := range record.States {
-			if state.CaptureFrame > maxFrame {
-				maxFrame = state.CaptureFrame
-			}
-		}
-	}
+	// Gap-fill sparse entity states out to the latest frame that actually
+	// appears in the recording, including times and events after the last
+	// position tick.
+	maxFrame := missionMaxFrame(data)
 
 	// Find max entity ID to size the entities array correctly
 	// The JS frontend uses entities[id] to look up entities, so array index must equal entity ID
@@ -151,6 +139,7 @@ func Build(data *MissionData) Export {
 				message = parsed
 			}
 		}
+		message = rewriteSnapshotDiffOf(evt.Name, message)
 		export.Events = append(export.Events, []any{
 			frameToV1(evt.CaptureFrame),
 			evt.Name,

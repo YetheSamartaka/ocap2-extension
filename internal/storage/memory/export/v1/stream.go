@@ -165,30 +165,21 @@ func writeJSON(bw *bufio.Writer, v any) error {
 
 // computeMetadata walks all soldier/vehicle records once to return:
 //   - maxFrame:    the maximum capture frame across all entity states
-//                  (falls back to 0 / FrameForever when none were recorded).
+//     (falls back to 0 / FrameForever when none were recorded).
 //   - maxEntityID: the largest soldier/vehicle ID, used to size the
-//                  entities array so array[ID] lookups work.
+//     entities array so array[ID] lookups work.
 //   - hasEntities: false when neither map holds any entity.
 func computeMetadata(data *MissionData) (maxFrame core.Frame, maxEntityID uint16, hasEntities bool) {
 	hasEntities = len(data.Soldiers) > 0 || len(data.Vehicles) > 0
+	maxFrame = missionMaxFrame(data)
 	for _, record := range data.Soldiers {
 		if record.Soldier.ID > maxEntityID {
 			maxEntityID = record.Soldier.ID
-		}
-		for _, state := range record.States {
-			if state.CaptureFrame > maxFrame {
-				maxFrame = state.CaptureFrame
-			}
 		}
 	}
 	for _, record := range data.Vehicles {
 		if record.Vehicle.ID > maxEntityID {
 			maxEntityID = record.Vehicle.ID
-		}
-		for _, state := range record.States {
-			if state.CaptureFrame > maxFrame {
-				maxFrame = state.CaptureFrame
-			}
 		}
 	}
 	return maxFrame, maxEntityID, hasEntities
@@ -227,6 +218,7 @@ func buildAggregates(data *MissionData) (events [][]any, markers [][]any, fireli
 				message = parsed
 			}
 		}
+		message = rewriteSnapshotDiffOf(evt.Name, message)
 		events = append(events, []any{frameToV1(evt.CaptureFrame), evt.Name, message})
 	}
 
