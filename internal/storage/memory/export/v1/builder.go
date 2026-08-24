@@ -61,6 +61,29 @@ func frameToV1(f core.Frame) int {
 	return int(f) - 1
 }
 
+// buildGeneralEvent converts a general event to the legacy v1 JSON array.
+// Connection events include the Steam UID as a fourth value when the addon
+// supplied it in extraData. Other general events retain the original shape.
+func buildGeneralEvent(evt core.GeneralEvent) []any {
+	var message any = evt.Message
+	if len(evt.Message) > 0 && (evt.Message[0] == '[' || evt.Message[0] == '{') {
+		var parsed any
+		if err := json.Unmarshal([]byte(evt.Message), &parsed); err == nil {
+			message = parsed
+		}
+	}
+	message = rewriteSnapshotDiffOf(evt.Name, message)
+
+	event := []any{frameToV1(evt.CaptureFrame), evt.Name, message}
+	if evt.Name == "connected" || evt.Name == "disconnected" {
+		if playerUID, ok := evt.ExtraData["playerUid"].(string); ok && playerUID != "" {
+			event = append(event, playerUID)
+		}
+	}
+
+	return event
+}
+
 // Build creates an Export from the mission data
 func Build(data *MissionData) Export {
 	export := Export{
@@ -127,24 +150,11 @@ func Build(data *MissionData) Export {
 
 	export.EndFrame = frameToV1(maxFrame)
 
-	// Convert general events
-	// Format: [frameNum, "type", message]
+	// Convert general events.
+	// Connection format: [frameNum, "connected"|"disconnected", playerName, playerUid]
+	// Other format: [frameNum, "type", message]
 	for _, evt := range data.GeneralEvents {
-		// Try to parse message as JSON - if it's a valid JSON array/object, use parsed value
-		// Otherwise keep as string
-		var message any = evt.Message
-		if len(evt.Message) > 0 && (evt.Message[0] == '[' || evt.Message[0] == '{') {
-			var parsed any
-			if err := json.Unmarshal([]byte(evt.Message), &parsed); err == nil {
-				message = parsed
-			}
-		}
-		message = rewriteSnapshotDiffOf(evt.Name, message)
-		export.Events = append(export.Events, []any{
-			frameToV1(evt.CaptureFrame),
-			evt.Name,
-			message,
-		})
+		export.Events = append(export.Events, buildGeneralEvent(evt))
 	}
 
 	// Convert sector events
@@ -605,6 +615,7 @@ func buildSoldierEntity(record *SoldierRecord, maxFrame core.Frame, extraFirelin
 	entity := Entity{
 		ID:            record.Soldier.ID,
 		Name:          name,
+		PlayerUID:     record.Soldier.PlayerUID,
 		Group:         record.Soldier.GroupID,
 		Side:          record.Soldier.Side,
 		IsPlayer:      boolToInt(isPlayer),

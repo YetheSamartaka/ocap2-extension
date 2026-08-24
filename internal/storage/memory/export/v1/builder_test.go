@@ -154,7 +154,7 @@ func TestBuildWithSoldier(t *testing.T) {
 		Soldiers: map[uint16]*SoldierRecord{
 			5: {
 				Soldier: core.Soldier{
-					ID: 5, UnitName: "Player1", GroupID: "Alpha", Side: "WEST", IsPlayer: true, JoinFrame: 10, RoleDescription: "Rifleman",
+					ID: 5, UnitName: "Player1", PlayerUID: "76561198000000005", GroupID: "Alpha", Side: "WEST", IsPlayer: true, JoinFrame: 10, RoleDescription: "Rifleman",
 				},
 				States: []core.SoldierState{
 					{SoldierID: 5, CaptureFrame: 10, Position: core.Position3D{X: 1000, Y: 2000}, Bearing: 90, Lifestate: 1, UnitName: "Player1", IsPlayer: true, CurrentRole: "Rifleman", GroupID: "Alpha", Side: "WEST"},
@@ -177,6 +177,7 @@ func TestBuildWithSoldier(t *testing.T) {
 
 	assert.Equal(t, uint16(5), entity.ID)
 	assert.Equal(t, "Player1", entity.Name)
+	assert.Equal(t, "76561198000000005", entity.PlayerUID)
 	assert.Equal(t, "Alpha", entity.Group)
 	assert.Equal(t, "WEST", entity.Side)
 	assert.Equal(t, 1, entity.IsPlayer)
@@ -487,6 +488,60 @@ func TestBuildWithGeneralEvents(t *testing.T) {
 
 	// Invalid JSON stays as string
 	assert.Equal(t, "[1,2,3", export.Events[3][2])
+}
+
+func TestBuildGeneralEventPlayerUID(t *testing.T) {
+	tests := []struct {
+		name     string
+		event    core.GeneralEvent
+		expected []any
+	}{
+		{
+			name: "connected with UID",
+			event: core.GeneralEvent{
+				CaptureFrame: 10,
+				Name:         "connected",
+				Message:      "Alice",
+				ExtraData:    map[string]any{"playerUid": "76561198000000001"},
+			},
+			expected: []any{9, "connected", "Alice", "76561198000000001"},
+		},
+		{
+			name: "disconnected with UID",
+			event: core.GeneralEvent{
+				CaptureFrame: 20,
+				Name:         "disconnected",
+				Message:      "Bob",
+				ExtraData:    map[string]any{"playerUid": "76561198000000002"},
+			},
+			expected: []any{19, "disconnected", "Bob", "76561198000000002"},
+		},
+		{
+			name: "connection without UID keeps legacy shape",
+			event: core.GeneralEvent{
+				CaptureFrame: 30,
+				Name:         "connected",
+				Message:      "Charlie",
+			},
+			expected: []any{29, "connected", "Charlie"},
+		},
+		{
+			name: "non-connection event ignores UID",
+			event: core.GeneralEvent{
+				CaptureFrame: 40,
+				Name:         "custom",
+				Message:      "payload",
+				ExtraData:    map[string]any{"playerUid": "76561198000000003"},
+			},
+			expected: []any{39, "custom", "payload"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, buildGeneralEvent(tt.event))
+		})
+	}
 }
 
 func TestBuildWithCapturedEventJSONArray(t *testing.T) {

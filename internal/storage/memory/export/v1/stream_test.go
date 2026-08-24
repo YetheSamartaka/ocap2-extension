@@ -50,6 +50,45 @@ func TestStream_EquivalentToBuild_EmptyMission(t *testing.T) {
 	require.JSONEq(t, string(want), string(got))
 }
 
+func TestStream_IncludesPlayerUIDs(t *testing.T) {
+	data := &MissionData{
+		Mission: &core.Mission{MissionName: "Connection"},
+		World:   &core.World{WorldName: "Altis"},
+		Soldiers: map[uint16]*SoldierRecord{
+			1: {
+				Soldier: core.Soldier{
+					ID: 1, UnitName: "Alice", PlayerUID: "76561198000000001",
+					Side: "WEST", IsPlayer: true, JoinFrame: 1,
+				},
+			},
+		},
+		Vehicles: make(map[uint16]*VehicleRecord),
+		Markers:  make(map[string]*MarkerRecord),
+		GeneralEvents: []core.GeneralEvent{
+			{
+				CaptureFrame: 10,
+				Name:         "connected",
+				Message:      "Alice",
+				ExtraData:    map[string]any{"playerUid": "76561198000000001"},
+			},
+			{
+				CaptureFrame: 20,
+				Name:         "disconnected",
+				Message:      "Alice",
+				ExtraData:    map[string]any{"playerUid": "76561198000000001"},
+			},
+		},
+	}
+
+	var export Export
+	require.NoError(t, json.Unmarshal(streamBytes(t, data), &export))
+	require.Len(t, export.Entities, 2)
+	require.Equal(t, "76561198000000001", export.Entities[1].PlayerUID)
+	require.Len(t, export.Events, 2)
+	require.Equal(t, []any{float64(9), "connected", "Alice", "76561198000000001"}, export.Events[0])
+	require.Equal(t, []any{float64(19), "disconnected", "Alice", "76561198000000001"}, export.Events[1])
+}
+
 func TestStream_EquivalentToBuild_MinimalSoldier(t *testing.T) {
 	data := &MissionData{
 		Mission: &core.Mission{MissionName: "M", CaptureDelay: 0.1},

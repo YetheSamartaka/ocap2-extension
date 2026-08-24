@@ -209,17 +209,9 @@ func buildAggregates(data *MissionData) (events [][]any, markers [][]any, fireli
 	markers = make([][]any, 0)
 	firelines = make(map[uint16][][]any)
 
-	// General events: [frameNum, "type", message]
+	// General events, with playerUid appended to connection events when available.
 	for _, evt := range data.GeneralEvents {
-		var message any = evt.Message
-		if len(evt.Message) > 0 && (evt.Message[0] == '[' || evt.Message[0] == '{') {
-			var parsed any
-			if err := json.Unmarshal([]byte(evt.Message), &parsed); err == nil {
-				message = parsed
-			}
-		}
-		message = rewriteSnapshotDiffOf(evt.Name, message)
-		events = append(events, []any{frameToV1(evt.CaptureFrame), evt.Name, message})
+		events = append(events, buildGeneralEvent(evt))
 	}
 
 	// Sector events: [frameNum, "captured"|"contested", [...]]
