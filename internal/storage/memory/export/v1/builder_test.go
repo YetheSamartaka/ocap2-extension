@@ -1422,6 +1422,80 @@ func TestBuildWithPlacedObjectMarker(t *testing.T) {
 	assert.Equal(t, 2000.0, pos0[1])
 }
 
+func TestBuildWithTrenchMarker(t *testing.T) {
+	data := &MissionData{
+		Mission:  &core.Mission{MissionName: "Test"},
+		World:    &core.World{WorldName: "Altis"},
+		Soldiers: make(map[uint16]*SoldierRecord),
+		Vehicles: make(map[uint16]*VehicleRecord),
+		Markers:  make(map[string]*MarkerRecord),
+		PlacedObjects: map[uint16]*PlacedObjectRecord{
+			70: {
+				PlacedObject: core.PlacedObject{
+					ID: 70, JoinFrame: 300, DisplayName: "Trench - Long - Novak - 12:34",
+					Position:   core.Position3D{X: 1200, Y: 900, Z: 15},
+					OwnerID:    42,
+					Side:       "WEST",
+					Weapon:     "trench",
+					Direction:  137.5,
+					MarkerIcon: "trench_long",
+				},
+				// Trench removal is not recorded, so a trench has no lifecycle events.
+				Events: nil,
+			},
+		},
+	}
+
+	export := Build(data)
+
+	require.Len(t, export.Markers, 1)
+	marker := export.Markers[0]
+
+	// An explicit MarkerIcon wins over the magIcons path, so the type is a plain
+	// icon name the web resolves out of assets/markers/**.
+	assert.Equal(t, "trench_long", marker[0])
+	assert.Equal(t, "Trench - Long - Novak - 12:34", marker[1]) // text
+	assert.Equal(t, 299, marker[2])                             // startFrame
+	assert.Equal(t, -1, marker[3])                              // endFrame: stays for the whole recording
+	assert.Equal(t, int(42), marker[4])                         // playerId
+	assert.Equal(t, "ICON", marker[9])
+
+	// Direction rides in the position entry and rotates the icon in playback.
+	posArray := marker[7].([][]any)
+	require.Len(t, posArray, 1)
+	assert.Equal(t, float32(137.5), posArray[0][2])
+}
+
+func TestBuildPlacedObjectWithoutDirectionKeepsLegacyZero(t *testing.T) {
+	data := &MissionData{
+		Mission:  &core.Mission{MissionName: "Test"},
+		World:    &core.World{WorldName: "Altis"},
+		Soldiers: make(map[uint16]*SoldierRecord),
+		Vehicles: make(map[uint16]*VehicleRecord),
+		Markers:  make(map[string]*MarkerRecord),
+		PlacedObjects: map[uint16]*PlacedObjectRecord{
+			80: {
+				PlacedObject: core.PlacedObject{
+					ID: 80, JoinFrame: 10, DisplayName: "APERS Mine",
+					Position:     core.Position3D{X: 1, Y: 2, Z: 3},
+					OwnerID:      1,
+					MagazineIcon: `\A3\icon_ca.paa`,
+					// Direction and MarkerIcon absent, as in every pre-trench recording.
+				},
+			},
+		},
+	}
+
+	export := Build(data)
+
+	require.Len(t, export.Markers, 1)
+	marker := export.Markers[0]
+
+	assert.Equal(t, "magIcons/icon_ca.paa", marker[0])
+	posArray := marker[7].([][]any)
+	assert.Equal(t, float32(0), posArray[0][2])
+}
+
 func TestBuildWithPlacedObjectNoIcon(t *testing.T) {
 	data := &MissionData{
 		Mission:  &core.Mission{MissionName: "Test"},

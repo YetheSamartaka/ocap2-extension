@@ -349,11 +349,17 @@ func buildAggregates(data *MissionData) (events [][]any, markers [][]any, fireli
 	// Placed objects become markers, and their "hit" events become event rows.
 	// Iterate in sorted order by ID so output is deterministic.
 	for _, record := range sortedPlacedObjects(data.PlacedObjects) {
-		iconFilename := extractFilename(record.PlacedObject.MagazineIcon)
+		// An explicit MarkerIcon (trenches) wins over the MagazineIcon-derived
+		// magIcons path (mines, explosives). Both are absent on older records,
+		// which fall through to Minefield exactly as before.
 		var markerType string
-		if iconFilename != "" {
+		iconFilename := extractFilename(record.PlacedObject.MagazineIcon)
+		switch {
+		case record.PlacedObject.MarkerIcon != "":
+			markerType = record.PlacedObject.MarkerIcon
+		case iconFilename != "":
 			markerType = "magIcons/" + iconFilename
-		} else {
+		default:
 			markerType = "Minefield"
 		}
 
@@ -369,7 +375,7 @@ func buildAggregates(data *MissionData) (events [][]any, markers [][]any, fireli
 			{
 				frameToV1(record.PlacedObject.JoinFrame),
 				[]float64{record.PlacedObject.Position.X, record.PlacedObject.Position.Y, record.PlacedObject.Position.Z},
-				0,
+				record.PlacedObject.Direction,
 				1.0,
 			},
 		}

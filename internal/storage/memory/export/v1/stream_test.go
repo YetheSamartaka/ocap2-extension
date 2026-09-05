@@ -282,6 +282,15 @@ func TestStream_EquivalentToBuild_AllFeatures(t *testing.T) {
 					{CaptureFrame: 9, PlacedID: 11, EventType: "deleted", Position: core.Position3D{X: 320, Y: 420}},
 				},
 			},
+			// A trench: explicit marker icon, a direction, and no lifecycle events.
+			// Keeps the streaming exporter honest about the two additive fields.
+			12: {
+				PlacedObject: core.PlacedObject{
+					ID: 12, DisplayName: "Trench - Big - Novak - 09:15",
+					Position: core.Position3D{X: 340, Y: 440}, JoinFrame: 3, OwnerID: 1,
+					Weapon: "trench", Direction: 275.25, MarkerIcon: "trench_big",
+				},
+			},
 		},
 		GeneralEvents: []core.GeneralEvent{
 			{CaptureFrame: 1, Name: "mission", Message: "start"},
@@ -321,7 +330,7 @@ func TestStream_EquivalentToBuild_AllFeatures(t *testing.T) {
 			{
 				CaptureFrame: 5, FirerObjectID: soldier1, SimulationType: "shotRocket",
 				WeaponDisplay: "RPG", MagazineDisplay: "PG-7", MuzzleDisplay: "RPG",
-				MagazineIcon:  `\ca\weapons\rpg_icon.paa`,
+				MagazineIcon: `\ca\weapons\rpg_icon.paa`,
 				Trajectory: []core.TrajectoryPoint{
 					{Position: core.Position3D{X: 10, Y: 20}, FrameNum: 5},
 					{Position: core.Position3D{X: 70, Y: 40}, FrameNum: 6},

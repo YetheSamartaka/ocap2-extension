@@ -315,11 +315,17 @@ func Build(data *MissionData) Export {
 	for _, record := range sortedPlacedObjects(data.PlacedObjects) {
 		id := record.PlacedObject.ID
 		// Determine marker icon
-		iconFilename := extractFilename(record.PlacedObject.MagazineIcon)
+		// An explicit MarkerIcon (trenches) wins over the MagazineIcon-derived
+		// magIcons path (mines, explosives). Both are absent on older records,
+		// which fall through to Minefield exactly as before.
 		var markerType string
-		if iconFilename != "" {
+		iconFilename := extractFilename(record.PlacedObject.MagazineIcon)
+		switch {
+		case record.PlacedObject.MarkerIcon != "":
+			markerType = record.PlacedObject.MarkerIcon
+		case iconFilename != "":
 			markerType = "magIcons/" + iconFilename
-		} else {
+		default:
 			markerType = "Minefield"
 		}
 
@@ -336,7 +342,7 @@ func Build(data *MissionData) Export {
 			{
 				frameToV1(record.PlacedObject.JoinFrame),
 				[]float64{record.PlacedObject.Position.X, record.PlacedObject.Position.Y, record.PlacedObject.Position.Z},
-				0,
+				record.PlacedObject.Direction,
 				1.0,
 			},
 		}
