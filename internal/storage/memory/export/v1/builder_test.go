@@ -1712,3 +1712,84 @@ func TestBuildWithVehicleDeleteFrame(t *testing.T) {
 
 	// Without DeleteFrame it would extend to maxFrame=21 → v1 [0, 20]
 }
+
+// Radio transmissions were parsed and stored for years but never reached the
+// export, so a recording could show which nets a player monitored and never who
+// keyed up on them. These lock the export path in.
+func TestBuildWithRadioEvents(t *testing.T) {
+	soldierID := uint(7)
+	data := &MissionData{
+		Mission:  &core.Mission{MissionName: "Comms"},
+		World:    &core.World{WorldName: "Altis"},
+		Soldiers: make(map[uint16]*SoldierRecord),
+		Vehicles: make(map[uint16]*VehicleRecord),
+		Markers:  make(map[string]*MarkerRecord),
+		RadioEvents: []core.RadioEvent{
+			{
+				CaptureFrame: 31,
+				SoldierID:    &soldierID,
+				Radio:        "AN/PRC-152",
+				RadioType:    "SW",
+				StartEnd:     "Start",
+				Channel:      3,
+				IsAdditional: false,
+				Frequency:    69.9,
+				Code:         "0451",
+			},
+		},
+	}
+
+	export := Build(data)
+
+	require.Len(t, export.Events, 1)
+	event := export.Events[0]
+	assert.Equal(t, 30, event[0]) // internal 1-based frame 31 → v1 0-based 30
+	assert.Equal(t, "radioTransmission", event[1])
+
+	payload, ok := event[2].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, 7, payload["unitId"])
+	assert.Equal(t, "AN/PRC-152", payload["radio"])
+	assert.Equal(t, "SW", payload["type"])
+	assert.Equal(t, "Start", payload["action"])
+	assert.Equal(t, 3, payload["channel"])
+	assert.Equal(t, false, payload["additional"])
+	assert.InDelta(t, 69.9, payload["frequency"], 0.001)
+	assert.Equal(t, "0451", payload["code"])
+}
+
+// An unattributed transmission still describes the net, so it is exported with
+// unitId -1 rather than dropped or written as a bogus id 0.
+func TestBuildRadioEventWithoutSoldier(t *testing.T) {
+	data := &MissionData{
+		Mission:  &core.Mission{MissionName: "Comms"},
+		World:    &core.World{WorldName: "Altis"},
+		Soldiers: make(map[uint16]*SoldierRecord),
+		Vehicles: make(map[uint16]*VehicleRecord),
+		Markers:  make(map[string]*MarkerRecord),
+		RadioEvents: []core.RadioEvent{
+			{CaptureFrame: 5, Radio: "Bergen", RadioType: "LR", StartEnd: "Stop", Frequency: 30.5},
+		},
+	}
+
+	export := Build(data)
+
+	require.Len(t, export.Events, 1)
+	payload, ok := export.Events[0][2].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, -1, payload["unitId"])
+}
+
+// A transmission after the last position tick still belongs on the timeline.
+func TestRadioEventRaisesEndFrame(t *testing.T) {
+	data := &MissionData{
+		Mission:     &core.Mission{MissionName: "Comms"},
+		World:       &core.World{WorldName: "Altis"},
+		Soldiers:    make(map[uint16]*SoldierRecord),
+		Vehicles:    make(map[uint16]*VehicleRecord),
+		Markers:     make(map[string]*MarkerRecord),
+		RadioEvents: []core.RadioEvent{{CaptureFrame: 120, Radio: "Bergen", RadioType: "LR", StartEnd: "Start"}},
+	}
+
+	assert.Equal(t, 119, Build(data).EndFrame)
+}

@@ -21,6 +21,7 @@ type MissionData struct {
 	PlacedObjects map[uint16]*PlacedObjectRecord
 
 	GeneralEvents    []core.GeneralEvent
+	RadioEvents      []core.RadioEvent
 	SectorEvents     []core.SectorEvent
 	EndMissionEvents []core.EndMissionEvent
 	HitEvents        []core.HitEvent
@@ -82,6 +83,38 @@ func buildGeneralEvent(evt core.GeneralEvent) []any {
 	}
 
 	return event
+}
+
+// buildRadioEvent converts one TFAR/ACRE push-to-talk into the v1 JSON array.
+//
+// The payload rides as a JSON object in the message slot, the same additive
+// shape every event type added after v1 was frozen uses, so an older reader
+// skips it by name and never has to understand the fields.
+//
+// Deliberately absent: the radio range and which mod it came from. A
+// transmission says only who keyed up on what net; the range that decides who
+// could hear it lives on the radio itself and is recorded by the player radio
+// snapshots, which is where a reader has to join anyway.
+func buildRadioEvent(evt core.RadioEvent) []any {
+	unitID := -1
+	if evt.SoldierID != nil {
+		unitID = int(*evt.SoldierID)
+	}
+
+	return []any{
+		frameToV1(evt.CaptureFrame),
+		"radioTransmission",
+		map[string]any{
+			"unitId":     unitID,
+			"radio":      evt.Radio,
+			"type":       evt.RadioType,
+			"action":     evt.StartEnd,
+			"channel":    int(evt.Channel),
+			"additional": evt.IsAdditional,
+			"frequency":  float64(evt.Frequency),
+			"code":       evt.Code,
+		},
+	}
 }
 
 // Build creates an Export from the mission data
@@ -155,6 +188,12 @@ func Build(data *MissionData) Export {
 	// Other format: [frameNum, "type", message]
 	for _, evt := range data.GeneralEvents {
 		export.Events = append(export.Events, buildGeneralEvent(evt))
+	}
+
+	// Convert radio transmissions
+	// Format: [frameNum, "radioTransmission", {unitId, radio, type, action, ...}]
+	for _, evt := range data.RadioEvents {
+		export.Events = append(export.Events, buildRadioEvent(evt))
 	}
 
 	// Convert sector events

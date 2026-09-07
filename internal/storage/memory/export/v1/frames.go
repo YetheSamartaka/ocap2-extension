@@ -26,6 +26,9 @@ func missionMaxFrame(data *MissionData) core.Frame {
 	for _, evt := range data.GeneralEvents {
 		max = raiseFrame(max, evt.CaptureFrame)
 	}
+	for _, evt := range data.RadioEvents {
+		max = raiseFrame(max, evt.CaptureFrame)
+	}
 	for _, evt := range data.SectorEvents {
 		max = raiseFrame(max, evt.CaptureFrame)
 	}

@@ -467,3 +467,25 @@ func TestStream_LargeMissionPeakMemory(t *testing.T) {
 		t.Fatalf("HeapInuse grew by %d bytes during Stream; expected < %d (streaming regression?)", delta, ceiling)
 	}
 }
+
+// The streaming writer is the path large recordings take, so it has to emit
+// transmissions identically to the in-memory build.
+func TestStream_EquivalentToBuild_RadioEvents(t *testing.T) {
+	soldierID := uint(7)
+	data := &MissionData{
+		Mission:  &core.Mission{MissionName: "Comms"},
+		World:    &core.World{WorldName: "Altis"},
+		Soldiers: make(map[uint16]*SoldierRecord),
+		Vehicles: make(map[uint16]*VehicleRecord),
+		Markers:  make(map[string]*MarkerRecord),
+		RadioEvents: []core.RadioEvent{
+			{CaptureFrame: 31, SoldierID: &soldierID, Radio: "AN/PRC-152", RadioType: "SW", StartEnd: "Start", Channel: 3, Frequency: 69.9, Code: "0451"},
+			{CaptureFrame: 36, SoldierID: &soldierID, Radio: "AN/PRC-152", RadioType: "SW", StartEnd: "Stop", Channel: 3, Frequency: 69.9, Code: "0451"},
+		},
+	}
+
+	want := buildThenEncode(t, data)
+	got := streamBytes(t, data)
+
+	require.JSONEq(t, string(want), string(got))
+}

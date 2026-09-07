@@ -214,6 +214,11 @@ func buildAggregates(data *MissionData) (events [][]any, markers [][]any, fireli
 		events = append(events, buildGeneralEvent(evt))
 	}
 
+	// Radio transmissions: [frameNum, "radioTransmission", {...}]
+	for _, evt := range data.RadioEvents {
+		events = append(events, buildRadioEvent(evt))
+	}
+
 	// Sector events: [frameNum, "captured"|"contested", [...]]
 	for _, evt := range data.SectorEvents {
 		events = append(events, []any{
