@@ -68,6 +68,45 @@ func TestServerFpsSamplesRecordedAsGeneralEvents(t *testing.T) {
 	assert.Equal(t, uint(20), uint(backend.generalEvents[2].CaptureFrame))
 }
 
+func TestWeatherSamplesRecordedAsGeneralEvents(t *testing.T) {
+	d, backend := newSnapshotManager(t)
+
+	payload := `{"overcast":0.42,"rain":0.1,"fog":0.2,"windSpeed":3.4,"windDir":247,"humidity":0.68,"moonPhase":0.81,"temperature":16.3,"ace":true}`
+	samples := []string{"0", "60", "120"}
+	for _, frame := range samples {
+		_, err := d.Dispatch(dispatcher.Event{
+			Command: ":EVENT:GENERAL:",
+			Args:    []string{frame, "weather", payload},
+		})
+		require.NoError(t, err)
+	}
+
+	waitFor(t, func() bool {
+		backend.mu.Lock()
+		defer backend.mu.Unlock()
+		return len(backend.generalEvents) == len(samples)
+	}, "timed out waiting for weather samples")
+
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	for i, frame := range samples {
+		recorded := backend.generalEvents[i]
+		assert.Equal(t, "weather", recorded.Name)
+		var decoded map[string]any
+		require.NoError(t, json.Unmarshal([]byte(recorded.Message), &decoded))
+		assert.Equal(t, 0.42, decoded["overcast"])
+		assert.Equal(t, 0.81, decoded["moonPhase"])
+		assert.Equal(t, true, decoded["ace"])
+		assert.Equal(t, uint(mustAtoi(frame)), uint(recorded.CaptureFrame))
+	}
+}
+
+func mustAtoi(value string) int {
+	n := 0
+	fmt.Sscanf(value, "%d", &n)
+	return n
+}
+
 // Follow-up snapshots are diffs against the previous payload of the same kind,
 // so the recorded order inside one command decides whether the chain rebuilds.
 // Each player command owns its own buffer, drained by a single goroutine.

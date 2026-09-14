@@ -37,7 +37,7 @@ func TestRewriteSnapshotDiffOfHandlesFirstFrame(t *testing.T) {
 // Only the four per-player kinds carry diffs. The global samples stamped by the
 // recorder have no diffOf semantics, so a field of that name is left alone.
 func TestRewriteSnapshotDiffOfIgnoresGlobalEvents(t *testing.T) {
-	for _, eventName := range []string{"serverFps", "tfarSettings", "acreSettings", "generalEvent", "connected"} {
+	for _, eventName := range []string{"serverFps", "weather", "tfarSettings", "acreSettings", "generalEvent", "connected"} {
 		message := map[string]any{"diffOf": 60.0}
 		out := rewriteSnapshotDiffOf(eventName, message)
 		assert.Equal(t, map[string]any{"diffOf": 60.0}, out, eventName)

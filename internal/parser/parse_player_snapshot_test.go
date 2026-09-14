@@ -80,6 +80,17 @@ func TestParseGeneralEvent_UnescapesSnapshotPayloads(t *testing.T) {
 			},
 		},
 		{
+			name:      "weather sample",
+			eventType: "weather",
+			raw:       `"{""overcast"":0.42,""rain"":0.1,""fog"":0.2,""windSpeed"":3.4,""windDir"":247,""humidity"":0.68,""moonPhase"":0.81,""temperature"":16.3,""ace"":true}"`,
+			check: func(t *testing.T, payload map[string]any) {
+				assert.Equal(t, 0.42, payload["overcast"])
+				assert.Equal(t, 0.81, payload["moonPhase"])
+				assert.Equal(t, 16.3, payload["temperature"])
+				assert.Equal(t, true, payload["ace"])
+			},
+		},
+		{
 			name:      "tfar settings stamped on the first capture frame",
 			eventType: "tfarSettings",
 			raw:       `"{""terrainInterceptionCoefficient"":7,""globalRadioRangeCoef"":1,""tfarLoaded"":true,""source"":""cba""}"`,
